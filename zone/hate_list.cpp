@@ -95,15 +95,39 @@ struct_HateList* HateList::Find(Mob* m)
 
 void HateList::SetHateAmountOnEnt(Mob* other, int64 in_hate, uint64 in_damage)
 {
-	struct_HateList *entity = Find(other);
-	if (entity)
-	{
-		if (in_damage > 0)
-			entity->hatelist_damage = in_damage;
-		if (in_hate > 0)
-			entity->stored_hate_amount = in_hate;
-		entity->last_modified = Timer::GetCurrentTime();
-	}
+    struct_HateList *entity = Find(other);
+    if (entity)
+    {
+        if (in_damage > 0)
+            entity->hatelist_damage = in_damage;
+        if (in_hate > 0)
+            entity->stored_hate_amount = in_hate;
+        entity->last_modified = Timer::GetCurrentTime();
+    }
+
+    //VULAK ID 124127. The rest are his guards
+    std::vector<int> mob_ids = {124123, 124118, 124122, 124121, 124113, 124116, 124127};
+
+    if (other->GetID() == 124127) {
+        for (int mob_id : mob_ids) {
+            if (mob_id != 124127) {
+                Mob *mob = entity_list.GetMob(mob_id);
+                if (mob) {
+                    HateList *mob_hate_list = mob->GetHateList();
+                    struct_HateList *other_entity = mob_hate_list->Find(other);
+                    if (other_entity) {
+                        if (in_damage > 0)
+                            other_entity->hatelist_damage = in_damage;
+                        if (in_hate > 0)
+                            other_entity->stored_hate_amount = in_hate;
+                        other_entity->last_modified = Timer::GetCurrentTime();
+                    } else {
+                        mob_hate_list->AddEntToHateList(other, in_hate, in_damage, false, true);
+                    }
+                }
+            }
+        }
+    }
 }
 
 Mob* HateList::GetDamageTopOnHateList(Mob* hater)
@@ -206,52 +230,66 @@ Mob* HateList::GetClosestEntOnHateList(Mob *hater, bool skip_mezzed, EntityFilte
 
 void HateList::AddEntToHateList(Mob *in_entity, int64 in_hate, int64 in_damage, bool in_is_entity_frenzied, bool iAddIfNotExist)
 {
-	if (!in_entity) {
-		return;
-	}
+    if (!in_entity) {
+        return;
+    }
 
-	if (in_entity->IsCorpse()) {
-		return;
-	}
+    if (in_entity->IsCorpse()) {
+        return;
+    }
 
-	if (in_entity->IsClient() && in_entity->CastToClient()->IsDead()) {
-		return;
-	}
+    if (in_entity->IsClient() && in_entity->CastToClient()->IsDead()) {
+        return;
+    }
 
-	struct_HateList *entity = Find(in_entity);
-	if (entity) {
-		entity->hatelist_damage += (in_damage >= 0) ? in_damage : 0;
-		entity->stored_hate_amount += in_hate;
-		entity->is_entity_frenzy = in_is_entity_frenzied;
-		entity->last_modified = Timer::GetCurrentTime();
+    struct_HateList *entity = Find(in_entity);
+    if (entity) {
+        entity->hatelist_damage += (in_damage >= 0) ? in_damage : 0;
+        entity->stored_hate_amount += in_hate;
+        entity->is_entity_frenzy = in_is_entity_frenzied;
+        entity->last_modified = Timer::GetCurrentTime();
 
-		LogHate(
-			"AddEntToHateList in_entity [{}] ({}) in_hate [{}] in_damage [{}] stored_hate_amount [{}] hatelist_damage [{}]",
-			in_entity->GetCleanName(),
-			in_entity->GetID(),
-			in_hate,
-			in_damage,
-			entity->stored_hate_amount,
-			entity->hatelist_damage
-		);
-	} else if (iAddIfNotExist) {
-		entity = new struct_HateList;
-		entity->entity_on_hatelist = in_entity;
-		entity->hatelist_damage = (in_damage >= 0) ? in_damage : 0;
-		entity->stored_hate_amount = in_hate;
-		entity->is_entity_frenzy = in_is_entity_frenzied;
-		entity->oor_count = 0;
-		entity->last_modified = Timer::GetCurrentTime();
-		list.push_back(entity);
+        LogHate(
+            "AddEntToHateList in_entity [{}] ({}) in_hate [{}] in_damage [{}] stored_hate_amount [{}] hatelist_damage [{}]",
+            in_entity->GetCleanName(),
+            in_entity->GetID(),
+            in_hate,
+            in_damage,
+            entity->stored_hate_amount,
+            entity->hatelist_damage
+        );
+    } else if (iAddIfNotExist) {
+        entity = new struct_HateList;
+        entity->entity_on_hatelist = in_entity;
+        entity->hatelist_damage = (in_damage >= 0) ? in_damage : 0;
+        entity->stored_hate_amount = in_hate;
+        entity->is_entity_frenzy = in_is_entity_frenzied;
+        entity->oor_count = 0;
+        entity->last_modified = Timer::GetCurrentTime();
+        list.push_back(entity);
 
-		if (parse->HasQuestSub(hate_owner->GetNPCTypeID(), EVENT_HATE_LIST)) {
-			parse->EventNPC(EVENT_HATE_LIST, hate_owner->CastToNPC(), in_entity, "1", 0);
-		}
+        if (parse->HasQuestSub(hate_owner->GetNPCTypeID(), EVENT_HATE_LIST)) {
+            parse->EventNPC(EVENT_HATE_LIST, hate_owner->CastToNPC(), in_entity, "1", 0);
+        }
 
-		if (in_entity->IsClient()) {
-			in_entity->CastToClient()->IncrementAggroCount(hate_owner->CastToNPC()->IsRaidTarget());
-		}
-	}
+        if (in_entity->IsClient()) {
+            in_entity->CastToClient()->IncrementAggroCount(hate_owner->CastToNPC()->IsRaidTarget());
+        }
+    }
+
+    //VULAK ID 124127. The rest are his guards
+    std::vector<int> mob_ids = {124123, 124118, 124122, 124121, 124113, 124116, 124127};
+
+    if (std::find(mob_ids.begin(), mob_ids.end(), hate_owner->GetID()) != mob_ids.end()) {
+        for (int mob_id : mob_ids) {
+            if (mob_id != hate_owner->GetID()) {
+                Mob *mob = entity_list.GetMob(mob_id);
+                if (mob && !mob->GetHateList()->IsEntOnHateList(in_entity)) {
+                    mob->GetHateList()->AddEntToHateList(in_entity, in_hate, in_damage, in_is_entity_frenzied, iAddIfNotExist);
+                }
+            }
+        }
+    }
 }
 
 bool HateList::RemoveEntFromHateList(Mob *in_entity)
